@@ -1,0 +1,70 @@
+version: '3'
+
+services:
+
+  # region SQL Server (Azure SQL Edge)
+  db_mssql:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: ${APP_NAME}_db_mssql
+    ports:
+      - "${DB_MSSQL_PORT}:1433"
+    environment:
+      ACCEPT_EULA: "1"
+      MSSQL_SA_PASSWORD: ${DB_MSSQL_PASSWORD}
+      MSSQL_PID: "Developer"
+      MSSQL_USER: "SA"
+    cap_add:
+      - SYS_PTRACE
+    volumes:
+      - type: bind
+        source: ./DB_MSSQL/data
+        target: /var/opt/mssql
+
+  cmd_mssql:
+    image: mcr.microsoft.com/mssql-tools:latest
+    container_name: ${APP_NAME}_cmd_mssql
+    stdin_open: true
+    depends_on:
+      - db_mssql
+    environment:
+      MSSQL_SA_PASSWORD: ${DB_MSSQL_PASSWORD}
+      MSSQL_DATABASE: ${DB_MSSQL_DATABASE}
+    volumes:
+      - type: bind
+        source: ./DB_MSSQL/scripts
+        target: /opt/mssql_scripts
+    command: /opt/mssql_scripts/init.sh
+  # endregion
+
+  # region MySQL
+  db_mysql:
+    image: mysql:lts
+    container_name: ${APP_NAME}_db_mysql
+    ports:
+      - "${DB_MYSQL_PORT}:3306"
+    volumes:
+      - ./DB_MYSQL/data:/var/lib/mysql      
+      - ./DB_MYSQL/scripts:/docker-entrypoint-initdb.d
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+      MYSQL_USER: ${DB_MYSQL_USERNAME}
+      MYSQL_PASSWORD: ${DB_MYSQL_PASSWORD}
+      MYSQL_DB: ${DB_MYSQL_DATABASE}
+    command: mysqld --sql_mode="" --group_concat_max_len=102400
+  # endregion
+
+  # region Postgres (PostGIS)
+  db_postgres:
+    image: postgis/postgis:latest
+    container_name: ${APP_NAME}_db_postgres
+    restart: always
+    ports:
+      - "${DB_PG_PORT}:5432"
+    volumes:
+      - ./DB_POSTGRES/data:/var/lib/postgresql/data
+      - ./DB_POSTGRES/scripts:/docker-entrypoint-initdb.d
+    environment:
+      POSTGRES_USER: ${DB_PG_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PG_PASSWORD}
+      POSTGRES_DB: ${DB_PG_DATABASE}
+    # endregion 
